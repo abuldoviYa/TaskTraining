@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="scripts.js" defer></script>
+
+</head>
+<body>
+
+<div>
+    <label for="taskSearch">Search Tasks:</label>
+    <input type="text" id="taskSearch">
+
+    <label for="datepicker">Select Date:</label>
+    <input type="text" id="datepicker">
+
+    <button id="todayButton">Tasks for Today</button>
+    <button id="thisWeekButton">Tasks for This Week</button>
+    <button id="sortButton">Sort by Date</button>
+
+    <label for="incompleteTasksCheckbox">Show Incomplete Tasks Only:</label>
+    <input type="checkbox" id="incompleteTasksCheckbox">
+</div>
+
+<div id="taskList">
+    <!-- Task items will be displayed here -->
+</div>
+
+<div id="overlay" onclick="closeTaskModal()"></div>
+
+<!-- Modal for displaying full task description -->
+<div id="taskModal">
+    <div id="modalContent"></div>
+    <button onclick="closeTaskModal()">Close</button>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+
+
+
+</body>
+</html>
