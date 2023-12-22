@@ -5,8 +5,8 @@ let tasks = [];
 function filterTasks(tasksToFilter) {
     const incompleteCheckbox = document.getElementById('incompleteTasksCheckbox');
     const filteredTasks = incompleteCheckbox.checked
-        ? tasksToFilter.filter(task => !task.status) // Show only incomplete tasks
-        : tasksToFilter; // Show all tasks
+        ? tasksToFilter.filter(task => !task.status)
+        : tasksToFilter;
 
     return filteredTasks;
 }
@@ -33,10 +33,13 @@ async function fetchTasks(url, queryParams = {}) {
 
 function createTaskElement(task) {
     const taskElement = document.createElement('div');
+
+    const formattedDateTime = formatDateTime(task.date);
+
     taskElement.classList.add("listItem")
     taskElement.innerHTML = `
             <h3>${task.name}</h3>
-            <p>Date: ${task.date}</p>
+            <p>Date: ${formattedDateTime}</p>
             <p>Status: ${task.status ? 'Completed' : 'Incomplete'}</p>
             <p>${task.shortDesc}</p>
             <button onclick="openTaskModal('${task.id}')">Open Description</button>
@@ -46,23 +49,24 @@ function createTaskElement(task) {
 
 async function displayTasks() {
     try {
-        if (tasks.length === 0) {
-            tasks = await fetchTasks('https://todo.doczilla.pro/api/todos');
-        }
+        // if (tasks.length === 0) {
+        //     tasks = await fetchTasks('https://todo.doczilla.pro/api/todos');
+        // }
         const taskListContainer = document.getElementById('taskList');
         taskListContainer.innerHTML = '';
 
         const filteredTasks = filterTasks(tasks);
 
-        if (filteredTasks.length === 0) {
+
+        if (filteredTasks.length === 0 || filteredTasks.length === undefined) {
             taskListContainer.innerHTML = '<p>No tasks found.</p>';
-            return;
+        } else {
+            filteredTasks.forEach(task => {
+                const taskElement = createTaskElement(task);
+                taskListContainer.appendChild(taskElement);
+            });
         }
 
-        filteredTasks.forEach(task => {
-            const taskElement = createTaskElement(task);
-            taskListContainer.appendChild(taskElement);
-        });
     } catch (error) {
         console.error(error);
     }
@@ -71,9 +75,12 @@ async function displayTasks() {
 function openTaskModal(taskId) {
     const task = tasks.find(t => t.id === taskId);
     const modalContent = document.getElementById('modalContent');
+
+    const formattedDateTime = formatDateTime(task.date);
+
     modalContent.innerHTML = `
             <h2>${task.name}</h2>
-            <p>Date: ${task.date}</p>
+            <p>Date: ${formattedDateTime}</p>
             <p>Status: ${task.status ? 'Completed' : 'Incomplete'}</p>
             <p>${task.fullDesc}</p>
         `;
@@ -86,7 +93,6 @@ function openTaskModal(taskId) {
     document.body.classList.add('modal-open');
 }
 
-// Function to close task modal
 function closeTaskModal() {
     const overlay = document.getElementById('overlay');
     const taskModal = document.getElementById('taskModal');
@@ -96,51 +102,71 @@ function closeTaskModal() {
     document.body.classList.remove('modal-open');
 }
 
-$('#dateRange').datepicker({
-    showOtherMonths: true,
-    selectOtherMonths: true,
-    dateFormat: 'yy-mm-dd',
-    onSelect: function (dateText, inst) {
-        const selectedDate = $(this).datepicker('getDate');
-        $('#calendar').datepicker('setDate', selectedDate);
-        updateTasks(selectedDate);
-    }
+$('#todayButton').on('click', async function () {
+    const today = new Date();
+    const startDate = new Date(today);
+
+    startDate.setHours(0, 0, 0, 0);
+
+    // Set endDate to the end of today (23:59:59)
+    const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Set the datepickers
+    $('#startDate').datepicker('setDate', startDate);
+    $('#endDate').datepicker('setDate', endDate);
+    $('#calendar').datepicker('setDate', today);
+
+    const todayPlus = new Date(today);
+    todayPlus.setDate(today.getDate() + today.getDay() + 1);
+    await updateTasks(today, todayPlus);
+    displayTasks()
+});
+
+
+$('#thisWeekButton').on('click', async function () {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+
+    $('#dateRange').datepicker('setDate', startOfWeek);
+    $('#calendar').datepicker('setDate', startOfWeek);
+
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(today.getDate() - today.getDay() + 6);
+
+    await updateTasks(startOfWeek, endOfWeek);
+    displayTasks()
 });
 
 $('#calendar').datepicker({
     showOtherMonths: true,
     selectOtherMonths: true,
-    beforeShowDay: function (date) {
-        const startDate = $('#dateRange').datepicker('getDate');
+    dateFormat: 'yy-mm-dd',
+    onSelect: async function (dateText, inst) {
         const endDate = $('#calendar').datepicker('getDate');
 
-        if (startDate && endDate && date >= startDate && date <= endDate) {
-            return [true, 'ui-state-highlight'];
-        }
+        endDate.setDate(endDate.getDate())
 
-        return [true, ''];
-    },
-    onSelect: function (dateText, inst) {
-        const startDate = $('#dateRange').datepicker('getDate');
-        const endDate = $('#calendar').datepicker('getDate');
+        const startDate = new Date(endDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
 
-
-        if (!startDate || endDate < startDate) {
-            $('#dateRange').datepicker('setDate', endDate);
-        } else {
-            $('#dateRange').datepicker('setDate', startDate);
-        }
-
-        updateTasks(startDate, endDate);
+        await updateTasks(startDate, endDate);
+        displayTasks()
     }
 });
 
-function updateTasks(startDate, endDate) {
-    startDate = startDate.getTime()
-    endDate = endDate.getTime()
-    if(startDate == null) {
-        startDate = endDate
+async function updateTasks(startDate, endDate) {
+    try {
+        startDate = startDate.getTime()
+    } catch (e) {
+        // startDate = endDate.getTime()*100
+        startDate = new Date(endDate)
+        startDate = startDate.getTime()
     }
+    endDate = endDate.getTime()
+
     const apiUrl = 'https://todo.doczilla.pro/api/todos/date';
     const queryParams = {
         from: startDate,
@@ -148,16 +174,15 @@ function updateTasks(startDate, endDate) {
 
     };
 
-    fetchTasks(apiUrl, queryParams)
+    tasks = await fetchTasks(apiUrl, queryParams)
 }
 
 $('#search-icon').on('click', function () {
     const searchQuery = $('#taskSearch').val();
-    searchTasks(searchQuery); // Search tasks based on the entered query
+    searchTasks(searchQuery);
 });
 
 async function searchTasks(query) {
-    // Make a request to the API with the search query
     const apiUrl = 'https://todo.doczilla.pro/api/todos/find';
     const queryParams = {
         q: query,
@@ -166,6 +191,28 @@ async function searchTasks(query) {
     tasks = await fetchTasks(apiUrl, queryParams)
     displayTasks();
 }
+
+function formatDateTime(date) {
+    // Format the date
+    const formattedDate = new Date(date).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+
+    // Format the time
+    const formattedTime = new Date(date).toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+
+    // Combine formatted date and time
+    const formattedDateTime = `${formattedDate} ${formattedTime}`;
+
+    return formattedDateTime;
+}
+
 
 displayTasks();
 
